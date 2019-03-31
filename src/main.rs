@@ -10,8 +10,18 @@ extern crate crc16;
 extern crate reqwest;
 extern crate telegram_typings;
 
-use actix_web::{http, server, App, HttpRequest, Responder, State};
 use std::env;
+
+use actix_web::{App, http, HttpRequest, Responder, server, State};
+
+mod bot;
+
+struct BotState {
+    callback_signature: u16,
+    channel_id: i64,
+    chat_ids: Vec<i64>,
+    bot: bot::Bot,
+}
 
 fn greet(req: &HttpRequest) -> impl Responder {
     let to = req.match_info().get("name").unwrap_or("World");
