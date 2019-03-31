@@ -4,5 +4,5 @@ rust:
 - stable
 script:
 - |
-  cargo build &&
   cargo test
+#  cargo build &&
