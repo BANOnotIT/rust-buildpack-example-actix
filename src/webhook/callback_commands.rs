@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 type UserId = i64;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct MessageId(pub i64, pub i64);
 
 #[derive(Serialize, Deserialize)]
