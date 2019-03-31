@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
-use actix_web::multipart::MultipartItem::Field;
 use reqwest::{Client, Result};
 use serde::{Deserialize, Serialize};
-use telegram_typings::{InlineKeyboardMarkup, Message, ResponseParameters};
+use serde::de::DeserializeOwned;
+use telegram_typings::{InlineKeyboardMarkup, Message};
 
 #[derive(Deserialize)]
 struct BotResponse<T> {
@@ -12,6 +10,7 @@ struct BotResponse<T> {
     result: Option<T>,
 }
 
+#[derive(Clone)]
 pub struct Bot {
     client: Client,
     token: String,
@@ -22,8 +21,8 @@ pub enum ParseMode {
     HTML,
 }
 
-impl<F: Serialize + ?Sized> Bot {
-    pub fn new(token: &str) -> Self {
+impl Bot {
+    pub fn new(token: String) -> Self {
         Self {
             client: Client::new(),
             token,
@@ -33,9 +32,13 @@ impl<F: Serialize + ?Sized> Bot {
     fn get_url(&self, method: &str) -> String {
         format!("https://api.telegram.org/bot{}/{}", self.token, method)
     }
-    fn do_request<A = ()>(&self, method: &str, fields: &F) -> Result<BotResponse<A>> {
+    fn do_request<A: DeserializeOwned, F: Serialize + ?Sized>(
+        &self,
+        method: &str,
+        fields: &F,
+    ) -> Result<BotResponse<A>> {
         self.client
-            .post(self.get_url(method))
+            .post(&self.get_url(method))
             .form(&fields)
             .send()
             .and_then(|mut a| a.json())
@@ -44,21 +47,38 @@ impl<F: Serialize + ?Sized> Bot {
     pub fn kick_chat_member(&self, chat_id: i64, user_id: i64) -> Result<bool> {
         let fields = [("chat_id", chat_id), ("user_id", user_id)];
 
-        self.do_request("kickChatMember", fields)
-            .and_then(|result| Ok(result.ok))
+        self.do_request("kickChatMember", &fields)
+            .and_then(|a| Ok(a.result == Some(true)))
     }
     pub fn unban_chat_member(&self, chat_id: i64, user_id: i64) -> Result<bool> {
         let fields = [("chat_id", chat_id), ("user_id", user_id)];
 
-        self.do_request("unbanChatMember", fields)
-            .and_then(|result| Ok(result.ok))
+        self.do_request("unbanChatMember", &fields)
+            .and_then(|a| Ok(a.result == Some(true)))
     }
 
-    pub fn remove_message(&self, chat_id: i64, message_id: i64) -> Result<bool> {
+    pub fn delete_message(&self, chat_id: i64, message_id: i64) -> Result<bool> {
         let fields = [("chat_id", chat_id), ("message_id", message_id)];
 
-        self.do_request("deleteMessage", fields)
-            .and_then(|result| Ok(result.ok))
+        self.do_request("deleteMessage", &fields)
+            .and_then(|a| Ok(a.result == Some(true)))
+    }
+    pub fn edit_message_text(&self, chat_id: i64, message_id: i64, text: &str) -> Result<bool> {
+        #[derive(Serialize)]
+        struct Fields<'a> {
+            chat_id: i64,
+            message_id: i64,
+            text: &'a str,
+        }
+
+        let fields = Fields {
+            chat_id,
+            message_id,
+            text,
+        };
+
+        self.do_request("editMessage", &fields)
+            .and_then(|a| Ok(a.result == Some(true)))
     }
 
     pub fn edit_message_reply_markup(
@@ -67,7 +87,8 @@ impl<F: Serialize + ?Sized> Bot {
         message_id: i64,
         markup: InlineKeyboardMarkup,
     ) -> Result<Message> {
-        struct Fields<'a> {
+        #[derive(Serialize)]
+        struct Fields {
             chat_id: i64,
             message_id: i64,
             reply_markup: InlineKeyboardMarkup,
@@ -79,7 +100,7 @@ impl<F: Serialize + ?Sized> Bot {
             reply_markup: markup,
         };
 
-        self.do_request::<Message>("sendMessage", fields).map(|a| {
+        self.do_request("sendMessage", &fields).map(|a| {
             a.result
                 .expect("Expected message structure in response result")
         })
@@ -93,6 +114,7 @@ impl<F: Serialize + ?Sized> Bot {
         reply_to_message_id: Option<i64>,
         reply_markup: Option<InlineKeyboardMarkup>,
     ) -> Result<Message> {
+        #[derive(Serialize)]
         struct Fields<'a> {
             chat_id: i64,
             text: &'a str,
@@ -115,7 +137,7 @@ impl<F: Serialize + ?Sized> Bot {
             },
         };
 
-        self.do_request::<Message>("sendMessage", fields).map(|a| {
+        self.do_request("sendMessage", &fields).map(|a| {
             a.result
                 .expect("Expected message structure in response result")
         })
