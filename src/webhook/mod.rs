@@ -1,7 +1,7 @@
 //#[macro_use] extern crate serde_derive;
 use actix_web::{error, Error, HttpResponse, web};
 use base64;
-use telegram_typings::{Message, Update};
+use telegram_typings::{CallbackQuery, Message, Update};
 
 use crate::BotState;
 
@@ -19,13 +19,12 @@ pub fn handle(state: web::Data<BotState>, data: web::Json<Update>) -> Result<Htt
 
     if let Some(message) = message {
         report::handle_report(&state, message)
-    } else if let Some(data) = query {
-        if data.data.is_none() {
+    } else if let Some(callback) = query {
+        if callback.data.is_none() {
             return unhandled;
         }
-        let callback = data;
-        let data = data.data.unwrap();
-        let command = base64::decode(&data).map_err(|e| error::ErrorInternalServerError(e))?;
+        let CallbackQuery { id, from, inline_message_id, chat_instance, game_short_name, data, message } = *callback.clone();
+        let command = base64::decode(&data.unwrap()).map_err(|e| error::ErrorInternalServerError(e))?;
 
         let command =
             serde_cbor::from_slice(&command).map_err(|e| error::ErrorInternalServerError(e))?;
@@ -42,5 +41,8 @@ pub fn handle(state: web::Data<BotState>, data: web::Json<Update>) -> Result<Htt
 }
 
 fn is_message_a_spam_report(msg: &Box<Message>) -> bool {
-    msg.text.is_some() && msg.text.unwrap() == "/spam".to_owned() && msg.reply_to_message.is_some()
+    match &msg.text {
+        Some(text) => *text == "/spam".to_owned() && msg.reply_to_message.is_some(),
+        None => false
+    }
 }
