@@ -1,5 +1,8 @@
 language: rust
 sudo: required
+branches:
+  only:
+    - /.*/
 rust:
 - stable
 script:
