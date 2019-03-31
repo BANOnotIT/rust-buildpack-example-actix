@@ -1,11 +1,16 @@
-
 //! Example actix-web application.
 //!
 //! This code is adapted from the front page of the [Actix][] website.
 //!
 //! [actix]: https://actix.rs/docs/
 
-use actix_web::{server, App, HttpRequest, Responder};
+extern crate actix_web;
+extern crate base64;
+extern crate crc16;
+extern crate reqwest;
+extern crate telegram_typings;
+
+use actix_web::{http, server, App, HttpRequest, Responder, State};
 use std::env;
 
 fn greet(req: &HttpRequest) -> impl Responder {
@@ -27,6 +32,6 @@ fn main() {
             .resource("/{name}", |r| r.f(greet))
     })
     .bind(("0.0.0.0", port))
-    .expect("Can not bind to port 8000")
+    .expect("Can not bind to port")
     .run();
 }
